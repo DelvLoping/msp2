@@ -14,7 +14,7 @@ class HomeController extends AbstractController
     #[Route('/home/home', name: 'home')]
     public function home(ManagerRegistry $doctrine): Response
     {
-        
+        $user=$this->getUser();
         return $this->render('home/index.html.twig', [
             'controller_name' => 'HomeController',
         ]);

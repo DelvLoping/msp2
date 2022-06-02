@@ -2,16 +2,17 @@
 
 namespace App\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
-use Symfony\Component\HttpClient\HttpClient;
-use Doctrine\Persistence\ManagerRegistry;
-use Scheb\TwoFactorBundle\Security\TwoFactor\Provider\Email\EmailTwoFactorProvider;
-use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Scheb\TwoFactorBundle\Security\TwoFactor\Provider\Email\EmailTwoFactorProvider;
 
 
 
@@ -59,25 +60,22 @@ class SecurityController extends AbstractController
         $statusCode = $response->getStatusCode();
         $contentType = $response->getHeaders()['content-type'][0];
         $content = $response->getContent();
-
-        //revoke le role si il à déja été attribué
-        if(in_array("ROLE_LOCAL_USER",$user->getRoles())){
-            $roles=$user->getRoles();
-            var_dump($roles);
-            if (($key = array_search('ROLE_LOCAL_USER', $roles)) || $key = array_search('ROLE_LOCAL_BROWSER_USER', $roles)) {
-                unset($roles[$key]);
-            }
-            
-            $user->setRoles($roles);
+        $roles=$user->getRoles();
+        //Revoke access control
+        if(in_array("ROLE_LOCAL_USER",$roles)){
+            $user->setRoles(array("ROLE_USER"));
             $entityManager->flush();
+            $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+            $this->container->get('security.token_storage')->setToken($token);
         }
+
         if(json_decode($content,true)['country']=== "France")
         {
             if(in_array($_SERVER['REMOTE_ADDR'],$user->getIp())){
-                $roles=$user->getRoles();
-                array_push($roles,'ROLE_LOCAL_USER');
-                $user->setRoles($roles);
+                $user->setRoles(array("ROLE_LOCAL_USER"));
                 $entityManager->flush();
+                $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+                $this->container->get('security.token_storage')->setToken($token);
                 return $this->redirectToRoute('home_Browser');
             }else{
                 function random_string(){
@@ -121,10 +119,11 @@ class SecurityController extends AbstractController
                 $ip=$user->getIp();
                 array_push($ip,$_SERVER['REMOTE_ADDR']);
                 $user->setIp($ip);
-                $roles=$user->getRoles();
-                array_push($roles,'ROLE_LOCAL_USER');
-                $user->setRoles($roles);
+
+                $user->setRoles(array("ROLE_LOCAL_USER"));
                 $entityManager->flush();
+                $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+                $this->container->get('security.token_storage')->setToken($token);
                 return $this->redirectToRoute('home_Browser');
             }else{
                 $error="Invalid Code";
@@ -140,24 +139,23 @@ class SecurityController extends AbstractController
     #[Route('/home/browser', name: 'home_Browser')]
     public function homeBrowser(ManagerRegistry $doctrine,MailerInterface $mailer): Response
     {
+        
         $user=$this->getUser();
         $entityManager = $doctrine->getManager();
-
-        //revoke le role si il à déja été attribué
-        if(in_array('ROLE_LOCAL_BROWSER_USER',$user->getRoles())){
-            $roles=$user->getRoles();
-            if (($key = array_search('ROLE_LOCAL_BROWSER_USER', $roles)) !== false) {
-                unset($roles[$key]);
-            }
-            $user->setRoles($roles);
+       
+        $roles=$user->getRoles();
+        //Revoke access control
+        if(in_array("ROLE_LOCAL_BROWSER_USER",$roles)){
+            $user->setRoles(array("ROLE_LOCAL_USER"));
             $entityManager->flush();
+            $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+            $this->container->get('security.token_storage')->setToken($token);
         }
- 
         if(in_array(get_browser($_SERVER['HTTP_USER_AGENT'],true)['parent'],$user->getBrowser())){
-            $roles=$user->getRoles();
-            array_push($roles,'ROLE_LOCAL_BROWSER_USER');
-            $user->setRoles($roles);
+            $user->setRoles(array("ROLE_LOCAL_BROWSER_USER"));
             $entityManager->flush();
+            $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+            $this->container->get('security.token_storage')->setToken($token);
             return $this->redirectToRoute('home');
         }else{
             function random_string(){
@@ -200,10 +198,10 @@ class SecurityController extends AbstractController
                 $browser=$user->getBrowser();
                 array_push($browser,get_browser($_SERVER['HTTP_USER_AGENT'],true)['parent']);
                 $user->setBrowser($browser);
-                $roles=$user->getRoles();
-                array_push($roles,'ROLE_LOCAL_BROWSER_USER');
-                $user->setRoles($roles);
+                $user->setRoles(array("ROLE_LOCAL_BROWSER_USER"));
                 $entityManager->flush();
+                $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+                $this->container->get('security.token_storage')->setToken($token);
                 return $this->redirectToRoute('home');
             }else{
                 $error="Invalid Code";
