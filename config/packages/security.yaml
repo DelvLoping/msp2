@@ -7,6 +7,9 @@ security:
         App\Entity\User:
             algorithm: auto
 
+    role_hierarchy:
+        ROLE_LOCAL_USER:       ROLE_USER
+        ROLE_LOCAL_BROWSER_USER:       ROLE_LOCAL_USER
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
         # used to reload user from session & other features (e.g. switch_user)
@@ -30,7 +33,6 @@ security:
                 auth_form_path: 2fa_login    # The route name you have used in the routes.yaml
                 check_path: 2fa_login_check  # The route name you have used in the routes.yaml
                 trusted_parameter_name: _trusted  # Name of the parameter for the trusted device option
-                multi_factor: true
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#the-firewall
@@ -41,9 +43,10 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
-        #- { path: ^/, roles: FROM_FRANCE }
         - { path: ^/logout, roles:  ROLE_USER}
-        - { path: ^/home, roles: ROLE_USER }
+        - { path: ^/home/ip, roles: ROLE_USER }
+        - { path: ^/home/browser, roles: ROLE_LOCAL_USER }
+        - { path: ^/home/home, roles: ROLE_LOCAL_BROWSER_USER }
         - { path: ^/2fa, roles: IS_AUTHENTICATED_2FA_IN_PROGRESS }
 
 when@test:
