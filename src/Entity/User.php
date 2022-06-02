@@ -6,12 +6,13 @@ use Doctrine\ORM\Mapping as ORM;
 use App\Repository\UserRepository;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Scheb\TwoFactorBundle\Model\Email\TwoFactorInterface;
+use Symfony\Component\Security\Core\User\EquatableInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface, TwoFactorInterface
+class User implements UserInterface, PasswordAuthenticatedUserInterface, TwoFactorInterface, EquatableInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -155,5 +156,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, TwoFact
     public function setEmailAuthCode(string $authCode): void
     {
         $this->authCode = $authCode;
+    }
+
+    public function isEqualTo(UserInterface $user): bool
+    {
+         
+        if ($this->password !== $user->getPassword()) {
+            return false;
+        }
+         
+        if ($this->email !== $user->getEmail()) {
+            return false;
+        }
+ 
+        return true;
     }
 }
