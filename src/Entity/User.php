@@ -8,10 +8,11 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Scheb\TwoFactorBundle\Model\Email\TwoFactorInterface;
 use Symfony\Component\Security\Core\User\EquatableInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
-class User implements UserInterface, TwoFactorInterface, EquatableInterface
+class User implements UserInterface, TwoFactorInterface, EquatableInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -35,6 +36,7 @@ class User implements UserInterface, TwoFactorInterface, EquatableInterface
 
     #[ORM\Column(type: 'json', nullable: true)]
     private $ip = [];
+
 
     public function getId(): ?int
     {
@@ -109,6 +111,11 @@ class User implements UserInterface, TwoFactorInterface, EquatableInterface
         $this->roles = $roles;
 
         return $this;
+    }
+
+    public function getPassword(): ?string
+    {
+        return '';
     }
 
     /**

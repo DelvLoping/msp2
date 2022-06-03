@@ -71,68 +71,28 @@ class SecurityController extends AbstractController
 
         if(json_decode($content,true)['country']=== "France")
         {
-            if(in_array($_SERVER['REMOTE_ADDR'],$user->getIp())){
-                $user->setRoles(array("ROLE_LOCAL_USER"));
-                $entityManager->flush();
-                $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
-                $this->container->get('security.token_storage')->setToken($token);
-                return $this->redirectToRoute('home_Browser');
-            }else{
-                function random_string(){
-                    $chars = '0123456789';
-                    $string = '';
-                    for($i=0; $i<6; $i++){
-                        $string .= $chars[rand(0, strlen($chars)-1)];
-                    }
-                    return $string;
-                }
-                $code=random_string();
-                $user->setEmailAuthCode($code);
+            if(!in_array($_SERVER['REMOTE_ADDR'],$user->getIp()))
+            {
+                
+                $message="We detect a new ip connection: ".$_SERVER['REMOTE_ADDR'];
                 $entityManager->flush();
                 $email = (new Email())
                     ->from('no-reply@test.com')
                     ->to($user->getEmail())
-                    ->subject('Service Chatelet Register Ip')
-                    ->text($code);
+                    ->subject('Service Chatelet New Ip connection')
+                    ->text($message);
         
                 $mailer->send($email);
-        
-                return $this->redirectToRoute('home_ip_register');
             }
+            $user->setRoles(array("ROLE_LOCAL_USER"));
+            $entityManager->flush();
+            $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+            $this->container->get('security.token_storage')->setToken($token);
+            return $this->redirectToRoute('home_Browser');
         }else{
             return $this->redirectToRoute('ip_not_allow');
         }
     
-    }
-
-    #[Route('/home/ipRegister', name: 'home_ip_register')]
-    public function homeIpRegister(ManagerRegistry $doctrine, Request $request): Response
-    {
-        $user=$this->getUser();
-        $entityManager = $doctrine->getManager();
-
-        $error=null;
-
-        if ($request->getMethod() == 'POST') {
-            if($request->request->get('authCodeParameterName', '')===$user->getEmailAuthCode())
-            {
-                $ip=$user->getIp();
-                array_push($ip,$_SERVER['REMOTE_ADDR']);
-                $user->setIp($ip);
-
-                $user->setRoles(array("ROLE_LOCAL_USER"));
-                $entityManager->flush();
-                $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
-                $this->container->get('security.token_storage')->setToken($token);
-                return $this->redirectToRoute('home_Browser');
-            }else{
-                $error="Invalid Code";
-            }
-        }
-        return $this->render('security/ipRegister.html.twig', [
-            'ip' => $_SERVER['REMOTE_ADDR'],
-            'error'=> $error
-        ]);
     }
 
 
