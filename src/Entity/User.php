@@ -113,6 +113,14 @@ class User implements UserInterface, TwoFactorInterface, EquatableInterface, Pas
         return $this;
     }
 
+    public function revokeRoles(string $role): self
+    {
+        if(in_array($role,$this->roles)){
+            $this->setRoles(array("ROLE_USER"));
+        }
+        return $this;
+    }
+
     public function getPassword(): ?string
     {
         return '';

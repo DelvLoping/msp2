@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use Symfony\Component\Mime\Email;
 use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,7 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Scheb\TwoFactorBundle\Security\TwoFactor\Provider\Email\EmailTwoFactorProvider;
-
+use App\Service\IpService;
 
 
 class SecurityController extends AbstractController
@@ -31,7 +30,7 @@ class SecurityController extends AbstractController
         $lastUsername = $authenticationUtils->getLastUsername();
 
 
-        return $this->render('security/login.html.twig', ['last_username' => $lastUsername, 'error' => $error]);
+        return $this->render('security/login.html.twig', ['controller_name' => 'Login', 'last_username' => $lastUsername, 'error' => $error]);
     }
 
     #[Route(path: '/logout', name: 'app_logout')]
@@ -52,46 +51,43 @@ class SecurityController extends AbstractController
         $user=$this->getUser();
         $entityManager = $doctrine->getManager();
 
-        //Requete vers api ip
-        $httpClient = HttpClient::create();
-        //$response = $httpClient->request('GET', "http://ip-api.com/json/{$_SERVER['REMOTE_ADDR']}");
-        $response = $httpClient->request('GET', "http://ip-api.com/json/195.101.237.253");
-        //$response = $httpClient->request('GET', "http://ip-api.com/json/24.48.0.1");
-        $statusCode = $response->getStatusCode();
-        $contentType = $response->getHeaders()['content-type'][0];
-        $content = $response->getContent();
-        $roles=$user->getRoles();
-        //Revoke access control
-        if(in_array("ROLE_LOCAL_USER",$roles)){
-            $user->setRoles(array("ROLE_USER"));
-            $entityManager->flush();
-            $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
-            $this->container->get('security.token_storage')->setToken($token);
-        }
+        // Requete vers api ip
+        $ipService = new IpService();
+        $ipService->setUrl("http://ip-api.com/json/");
+        $ipService->queryIp("195.101.237.253");
 
-        if(json_decode($content,true)['country']=== "France")
-        {
-            if(!in_array($_SERVER['REMOTE_ADDR'],$user->getIp()))
-            {
-                
-                $message="We detect a new ip connection: ".$_SERVER['REMOTE_ADDR'];
-                $entityManager->flush();
-                $email = (new Email())
-                    ->from('no-reply@test.com')
-                    ->to($user->getEmail())
-                    ->subject('Service Chatelet New Ip connection')
-                    ->text($message);
+
+        //Revoke access control
+        $user->revokeRoles("ROLE_LOCAL_USER");
+        $entityManager->flush();
+        $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+        $this->container->get('security.token_storage')->setToken($token);
         
-                $mailer->send($email);
+        if($ipService->ipIsValid())
+        {
+            if($ipService->getCountryIp()=== "France"){
+                
+                if(!in_array($_SERVER['REMOTE_ADDR'],$user->getIp()))
+                {
+                    $user->setIp(array($_SERVER['REMOTE_ADDR']));
+                    $message="We detect a new ip connection: ".$_SERVER['REMOTE_ADDR'];
+                    $entityManager->flush();
+                    $email = (new Email())
+                        ->from('no-reply@test.com')
+                        ->to($user->getEmail())
+                        ->subject('Service Chatelet New Ip connection')
+                        ->text($message);
+        
+                    $mailer->send($email);
+                }
             }
             $user->setRoles(array("ROLE_LOCAL_USER"));
             $entityManager->flush();
             $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
             $this->container->get('security.token_storage')->setToken($token);
             return $this->redirectToRoute('home_Browser');
-        }else{
-            return $this->redirectToRoute('ip_not_allow');
         }
+        return $this->redirectToRoute('ip_not_allow');
     
     }
 
@@ -103,14 +99,11 @@ class SecurityController extends AbstractController
         $user=$this->getUser();
         $entityManager = $doctrine->getManager();
        
-        $roles=$user->getRoles();
-        //Revoke access control
-        if(in_array("ROLE_LOCAL_BROWSER_USER",$roles)){
-            $user->setRoles(array("ROLE_LOCAL_USER"));
-            $entityManager->flush();
-            $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
-            $this->container->get('security.token_storage')->setToken($token);
-        }
+        $user->revokeRoles("ROLE_LOCAL_BROWSER_USER");
+        $entityManager->flush();
+        $token = new UsernamePasswordToken($this->getUser(), 'main', $this->getUser()->getRoles());
+        $this->container->get('security.token_storage')->setToken($token);
+        
         if(in_array(get_browser($_SERVER['HTTP_USER_AGENT'],true)['parent'],$user->getBrowser())){
             $user->setRoles(array("ROLE_LOCAL_BROWSER_USER"));
             $entityManager->flush();
@@ -167,7 +160,7 @@ class SecurityController extends AbstractController
                 $error="Invalid Code";
             }
         }
-        return $this->render('security/browserRegister.html.twig', [
+        return $this->render('security/browserRegister.html.twig', ['controller_name' => 'Register Browser',
             'browser' => get_browser($_SERVER['HTTP_USER_AGENT'],true)['parent'],
             'error'=> $error
         ]);
